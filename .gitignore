@@ -1,6 +1,7 @@
 # repo-specific:
 twitter_keys.json
 /env*/
+feed_update.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

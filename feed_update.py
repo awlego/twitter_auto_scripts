@@ -1,13 +1,14 @@
 import tweepy
 import json
+import logging
 
-twitter_keys_file_name = "/Users/akuna/preps/twitter_auto_scripts/twitter_keys.json"
-with open(twitter_keys_file_name, encoding='utf-8', errors='ignore') as json_data:
-    twitter_keys = json.load(json_data)
+logging.basicConfig(filename='feed_update.log', level=logging.INFO)
 
-auth = tweepy.OAuthHandler(twitter_keys["api_key"], twitter_keys["api_secret_key"])
+def get_OAuth_access(twitter_keys):
+    """Generates the links you need to follow to setup OAuth
+    """
+    auth = tweepy.OAuthHandler(twitter_keys["api_key"], twitter_keys["api_secret_key"])
 
-def get_OAuth_access():
     try:
         redirect_url = auth.get_authorization_url()
     except tweepy.TweepError:
@@ -26,88 +27,118 @@ def get_OAuth_access():
     print(auth.access_token)
     print(auth.access_token_secret)
 
-# get_OAuth_access()
-auth.set_access_token(twitter_keys['oauth_key'], twitter_keys['oauth_secret'])
 
-# calling the api 
-api = tweepy.API(auth, wait_on_rate_limit=True)
+class ListUpdater():
 
-screen_name = "awlego"
-list_name = "Alex's Feed (Auto)"
-list_id = 1400695918391746560
+    def __init__(self, twitter_keys_file_name, screen_name, list_name, list_id):
+        with open(twitter_keys_file_name, encoding='utf-8', errors='ignore') as json_data:
+            self.twitter_keys = json.load(json_data)
 
-def create_list():
-    # name of the list
-    name = "Alex's Feed (Auto)"
-    description="A list of all the people I follow, automatically updated daily."
+        auth = tweepy.OAuthHandler(self.twitter_keys["api_key"], self.twitter_keys["api_secret_key"])
+        auth.set_access_token(self.twitter_keys['oauth_key'], self.twitter_keys['oauth_secret'])
+        self.api = tweepy.API(auth, wait_on_rate_limit=True)
 
-    # creating the list
-    list = api.create_list(name=list_name, description=description)
+        self.screen_name = screen_name
+        self.list_name = list_name
+        self.list_id = list_id
 
-    print("Name of the list : " + list.name)
-    print("Number of members in the list : " + str(list.member_count))
-    print("Mode of the list : " + list.mode)
+    def create_list():
+        # One time function I used to create the list.
+        # name of the list
+        name = "Alex's Feed (Auto)"
+        description="A list of all the people I follow, automatically updated daily."
 
+        # creating the list
+        list = self.api.create_list(name=self.list_name, description=description)
 
-def get_follows(screen_name):
-    follows_ids = []
-    for user in tweepy.Cursor(api.friends, screen_name=screen_name).items():
-        follows_ids.append(user.id)
-    print(follows_ids)
-    return follows_ids
+        print("Name of the list : " + list.name)
+        print("Number of members in the list : " + str(list.member_count))
+        print("Mode of the list : " + list.mode)
 
 
-def get_current_list(list_id):
-    current_list_ids = []
-    for member in tweepy.Cursor(api.list_members, list_id=list_id).items():
-        current_list_ids.append(member.id)
-    print(f"current_list_ids: {current_list_ids}")
-    return current_list_ids
+    def get_follows(self, screen_name):
+        follows_ids = []
+        for user in tweepy.Cursor(self.api.friends, screen_name=screen_name).items():
+            follows_ids.append(user.id)
+        return follows_ids
 
 
-def find_new_follows(current_list_ids, follows_ids):
-    new_follows = [id for id in follows_ids if id not in current_list_ids]
-    print(new_follows)
-    return new_follows
+    def get_current_list(self, list_id):
+        """Fetches a list of twitter ids given a twitter list.
+
+        Args:
+            list_id (int): twitter ID of the list.
+
+        Returns:
+            [int]: List of twitter ids in the list.
+        """
+        current_list_ids = []
+        for member in tweepy.Cursor(self.api.list_members, list_id=list_id).items():
+            current_list_ids.append(member.id)
+        logging.info(f"current_list_ids: {current_list_ids}")
+        return current_list_ids
 
 
-def find_old_follows(current_list_ids, follows_ids):
-    old_follows = [id for id in current_list_ids if id not in follows_ids]
-    print(old_follows)
-    return old_follows
+    def find_new_follows(self, current_list_ids, follows_ids):
+        new_follows = [id for id in follows_ids if id not in current_list_ids]
+        logging.info("New followers found, to add: {new_follows}")
+        return new_follows
 
 
-def find_diff(follows_ids, current_list_ids):
-    to_add = find_new_follows(current_list_ids, follows_ids)
-    to_remove = find_old_follows(current_list_ids, follows_ids)
-    print(to_add)
-    print(to_remove)
-    return to_add, to_remove
+    def find_old_follows(self, current_list_ids, follows_ids):
+        old_follows = [id for id in current_list_ids if id not in follows_ids]
+        logging.info("Old followers found, to remove: {new_follows}")
+        return old_follows
 
 
-# I wonder if there is a better way of doing this... whatever this works.
-def split_list(input_list, chunk_length):
-    num_slices = len(input_list) // chunk_length
-    if len(input_list) % chunk_length != 0:
-        num_slices += 1
-
-    split_list = []
-    for i in range(num_slices):
-        new_array = input_list[i*chunk_length:(i+1)*chunk_length]
-        split_list.append(new_array)
-    return split_list
+    def find_diff(self, follows_ids, current_list_ids):
+        to_add = self.find_new_follows(current_list_ids, follows_ids)
+        to_remove = self.find_old_follows(current_list_ids, follows_ids)
+        return to_add, to_remove
 
 
-def update_list(list_id, to_add, to_remove):
-    chunked_ids_to_add = split_list(to_add, 100)
-    chunked_ids_to_remove = split_list(to_remove, 100)
+    # I wonder if there is a better way of doing this... whatever this works.
+    def split_list(self, input_list, chunk_length):
+        num_slices = len(input_list) // chunk_length
+        if len(input_list) % chunk_length != 0:
+            num_slices += 1
 
-    for ids_list in chunked_ids_to_add:
-        status = api.add_list_members(list_id=list_id, screen_name=ids_list)
-    for ids_list in chunked_ids_to_remove:
-        status = api.remove_list_member(list_id=list_id, screen_name=ids_list)
+        split_list = []
+        for i in range(num_slices):
+            new_array = input_list[i*chunk_length:(i+1)*chunk_length]
+            split_list.append(new_array)
+        return split_list
 
-follows_ids = get_follows(screen_name)
-current_list_ids = get_current_list(list_id)
-to_add, to_remove = find_diff(follows_ids, current_list_ids)
-update_list(list_id, to_add, to_remove)
+
+    def update_list(self, list_id, to_add, to_remove):
+        chunked_ids_to_add = self.split_list(to_add, 100)
+        chunked_ids_to_remove = self.split_list(to_remove, 100)
+
+        for ids_list in chunked_ids_to_add:
+            self.api.add_list_members(list_id=list_id, screen_name=ids_list)
+        for ids_list in chunked_ids_to_remove:
+            self.api.remove_list_member(list_id=list_id, screen_name=ids_list)
+
+    def update(self):
+        follows_ids = self.get_follows(self.screen_name)
+        current_list_ids = self.get_current_list(self.list_id)
+        to_add, to_remove = self.find_diff(follows_ids, current_list_ids)
+        self.update_list(self.list_id, to_add, to_remove)
+
+
+def main():
+    logging.info("Starting update.")
+
+    twitter_keys_file_name = "/Users/akuna/preps/twitter_auto_scripts/twitter_keys.json"
+    screen_name = "awlego"
+    list_name = "Alex's Feed (Auto)"
+    list_id = 1400695918391746560
+
+    list_updater = ListUpdater(twitter_keys_file_name, screen_name, list_name, list_id)
+    list_updater.update()
+
+    logging.info("Finished update.")
+
+if __name__ == "__main__":
+    main()
+    
