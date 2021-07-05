@@ -115,9 +115,9 @@ class ListUpdater():
         chunked_ids_to_remove = self.split_list(to_remove, 100)
 
         for ids_list in chunked_ids_to_add:
-            self.api.add_list_members(list_id=list_id, screen_name=ids_list)
+            self.api.add_list_members(list_id=list_id, user_id=ids_list)
         for ids_list in chunked_ids_to_remove:
-            self.api.remove_list_member(list_id=list_id, screen_name=ids_list)
+            self.api.remove_list_members(list_id=list_id, user_id=ids_list)
 
     def update(self):
         follows_ids = self.get_follows(self.screen_name)
