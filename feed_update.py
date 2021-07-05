@@ -81,13 +81,13 @@ class ListUpdater():
 
     def find_new_follows(self, current_list_ids, follows_ids):
         new_follows = [id for id in follows_ids if id not in current_list_ids]
-        logging.info("New followers found, to add: {new_follows}")
+        logging.info(f"New followers found, to add: {new_follows}")
         return new_follows
 
 
     def find_old_follows(self, current_list_ids, follows_ids):
         old_follows = [id for id in current_list_ids if id not in follows_ids]
-        logging.info("Old followers found, to remove: {new_follows}")
+        logging.info(f"Old followers found, to remove: {old_follows}")
         return old_follows
 
 
