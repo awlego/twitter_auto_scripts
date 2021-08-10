@@ -1,8 +1,16 @@
-import tweepy
+import argparse
+import datetime
 import json
 import logging
 
-logging.basicConfig(filename='feed_update.log', level=logging.INFO)
+
+import tweepy
+
+logging.basicConfig(
+    filename='feed_update.log',
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 
 def get_OAuth_access(twitter_keys):
     """Generates the links you need to follow to setup OAuth
@@ -127,17 +135,25 @@ class ListUpdater():
 
 
 def main():
-    logging.info("Starting update.")
+    logging.info("Starting update")
 
-    twitter_keys_file_name = "/Users/akuna/preps/twitter_auto_scripts/twitter_keys.json"
+    parser = argparse.ArgumentParser(
+        description='Autoupdate a twitter list')
+    parser.add_argument(
+        'keys',
+        default="/Users/akuna/preps/twitter_auto_scripts/twitter_keys.json",
+        help='path to the twitter keys json file')
+    args = parser.parse_args()
+
     screen_name = "awlego"
     list_name = "Alex's Feed (Auto)"
     list_id = 1400695918391746560
 
-    list_updater = ListUpdater(twitter_keys_file_name, screen_name, list_name, list_id)
+    list_updater = ListUpdater(args.keys, screen_name, list_name, list_id)
     list_updater.update()
 
-    logging.info("Finished update.")
+    logging.info("Finished update")
+
 
 if __name__ == "__main__":
     main()
