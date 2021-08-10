@@ -12,6 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
+
 def get_OAuth_access(twitter_keys):
     """Generates the links you need to follow to setup OAuth
     """
