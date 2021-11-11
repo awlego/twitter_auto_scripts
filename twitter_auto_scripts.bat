@@ -1,1 +1,2 @@
 C:\Users\awlego\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.8_qbz5n2kfra8p0\python C:\Users\awlego\Documents\Repositories\twitter_auto_scripts\feed_update.py C:\Users\awlego\Documents\Repositories\twitter_auto_scripts\twitter_keys.json
+PAUSE
