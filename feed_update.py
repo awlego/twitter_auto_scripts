@@ -1,8 +1,7 @@
 import argparse
-import datetime
 import json
 import logging
-
+import time
 
 import tweepy
 
@@ -12,6 +11,18 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
+def limit_handled(cursor):
+    """rate limit handles tweepy cursor objects
+
+    Args:
+        cursor (tweepy cursor): cursor object
+    """
+    while True:
+        try:
+            yield cursor.next()
+        except tweepy.TooManyRequests:
+            logging.info(f"Hit API limit, waiting 15 minutes...")
+            time.sleep(15 * 60) # 15 minutes * 60 sec is twitter default timeout
 
 def get_OAuth_access(twitter_keys):
     """Generates the links you need to follow to setup OAuth
@@ -20,7 +31,7 @@ def get_OAuth_access(twitter_keys):
 
     try:
         redirect_url = auth.get_authorization_url()
-    except tweepy.TweepError:
+    except tweepy.TweepyException:
         print('Error, failed to get request token')
 
     print(redirect_url)
@@ -30,7 +41,7 @@ def get_OAuth_access(twitter_keys):
 
     try:
         auth.get_access_token(verifier)
-    except tweepy.TweepError:
+    except tweepy.TweepyException:
         print('Error! Failed to get access token.')
 
     print(auth.access_token)
@@ -67,7 +78,7 @@ class ListUpdater():
 
     def get_follows(self, screen_name):
         follows_ids = []
-        for user in tweepy.Cursor(self.api.friends, screen_name=screen_name).items():
+        for user in limit_handled(tweepy.Cursor(self.api.get_friends, screen_name=screen_name).items()):
             follows_ids.append(user.id)
         return follows_ids
 
@@ -82,7 +93,7 @@ class ListUpdater():
             [int]: List of twitter ids in the list.
         """
         current_list_ids = []
-        for member in tweepy.Cursor(self.api.list_members, list_id=list_id).items():
+        for member in limit_handled(tweepy.Cursor(self.api.list_members, list_id=list_id).items()):
             current_list_ids.append(member.id)
         logging.info(f"current_list_ids: {current_list_ids}")
         return current_list_ids

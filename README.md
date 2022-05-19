@@ -1,6 +1,9 @@
 # twitter_auto_scripts
 Scripts I automatically run to keep various twitter stuff up to date.
 
+Right now this just keeps an auto-updated list of all my follows, so that I can use the list mode instead of the main timeline to help make sure I see all the tweets of the people I care about.
+
+## Usage
 
 Setup virtual env:
 ```
