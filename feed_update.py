@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import re
 import time
 
 import tweepy
@@ -37,7 +38,7 @@ def get_OAuth_access(twitter_keys):
 
 class ListUpdater():
 
-    def __init__(self, twitter_keys_file_name, screen_name, list_name, list_id):
+    def __init__(self, twitter_keys_file_name, screen_name):
         with open(twitter_keys_file_name, encoding='utf-8', errors='ignore') as json_data:
             self.twitter_keys = json.load(json_data)
 
@@ -46,8 +47,8 @@ class ListUpdater():
         self.api = tweepy.API(auth, wait_on_rate_limit=True)
 
         self.screen_name = screen_name
-        self.list_name = list_name
-        self.list_id = list_id
+        self.follows = None
+
 
     def create_list(self):
         # One time function I used to create the list.
@@ -67,7 +68,7 @@ class ListUpdater():
         follows_ids = []
         for user in tweepy.Cursor(self.api.get_friends, screen_name=screen_name).items():
             follows_ids.append(user.id)
-        return follows_ids
+        self.follows = follows_ids
 
 
     def get_current_list(self, list_id):
@@ -88,13 +89,11 @@ class ListUpdater():
 
     def find_new_follows(self, current_list_ids, follows_ids):
         new_follows = [id for id in follows_ids if id not in current_list_ids]
-        logging.info(f"New followers found, to add: {new_follows}")
         return new_follows
 
 
     def find_old_follows(self, current_list_ids, follows_ids):
         old_follows = [id for id in current_list_ids if id not in follows_ids]
-        logging.info(f"Old followers found, to remove: {old_follows}")
         return old_follows
 
 
@@ -126,18 +125,72 @@ class ListUpdater():
         for ids_list in chunked_ids_to_remove:
             self.api.remove_list_members(list_id=list_id, user_id=ids_list)
 
+
+    def update_following(self, list_id=1400695918391746560):
+        if not self.follows:
+            self.get_follows(self.screen_name)
+        current_list_ids = self.get_current_list(list_id)
+        to_add, to_remove = self.find_diff(self.follows, current_list_ids)
+        logging.info(f"New followers found, to add: {to_add}")
+        logging.info(f"Old followers found, to remove: {to_remove}")
+        self.update_list(list_id, to_add, to_remove)
+
+
+    def get_followers(self):
+        """
+        Returns a list of twitter ids of users who follow the user.
+        """
+        followers = []
+        for user in tweepy.Cursor(self.api.get_followers, screen_name=self.screen_name).items():
+            followers.append(user.id)
+        return followers
+    
+
+    def get_names_and_handles(self, twitter_ids):
+        """returns the names and handles of the users given their twitter ids.
+        """
+        return_value = []
+        users = self.api.lookup_users(user_id=twitter_ids)
+        for user in users:
+            return_value.append((user.name, user.screen_name))
+        return return_value
+
+
+    def update_mutuals(self, list_id=1437506909926354944):
+        mutuals = []
+        if not self.follows:
+            self.get_follows(self.screen_name)
+        followers = self.get_followers()
+        for follow in self.follows:
+            if follow in followers:
+                mutuals.append(follow) 
+
+        current_list_ids = self.get_current_list(list_id)
+        to_add, to_remove = self.find_diff(mutuals, current_list_ids)
+        logging.info(f"New mutuals found, to add: {to_add}")
+        logging.info(f"Old mutuals found, to remove: {to_remove}")
+
+        # names, handles = self.get_names_and_handles(to_add)
+        # for name, handle in names, handles:
+        #     logging.info(f"New mutuals found: {name} @{handle}")
+
+        # names, handles = self.get_names_and_handles(to_remove)
+        # for name, handle in names, handles:
+        #     logging.info(f"Old mutuals removed: {name} @{handle}")
+
+        self.update_list(list_id, to_add, to_remove)
+
+
     def update(self):
-        follows_ids = self.get_follows(self.screen_name)
-        current_list_ids = self.get_current_list(self.list_id)
-        to_add, to_remove = self.find_diff(follows_ids, current_list_ids)
-        self.update_list(self.list_id, to_add, to_remove)
+        self.update_following()
+        self.update_mutuals()
 
 
 def main():
     logging.info("Starting update")
 
     parser = argparse.ArgumentParser(
-        description='Autoupdate a twitter list')
+        description='Auto update a twitter list')
     parser.add_argument(
         'keys',
         default="/Users/akuna/preps/twitter_auto_scripts/twitter_keys.json",
@@ -145,10 +198,9 @@ def main():
     args = parser.parse_args()
 
     screen_name = "awlego"
-    list_name = "Alex's Feed (Auto)"
-    list_id = 1400695918391746560
+    # lists_to_update = [("Awlego's Feed (Auto)", 1400695918391746560), ("Awlego's Mutuals", 1437506909926354944)]
 
-    list_updater = ListUpdater(args.keys, screen_name, list_name, list_id)
+    list_updater = ListUpdater(args.keys, screen_name)
     list_updater.update()
 
     logging.info("Finished update")
