@@ -11,19 +11,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
-def limit_handled(cursor):
-    """rate limit handles tweepy cursor objects
-
-    Args:
-        cursor (tweepy cursor): cursor object
-    """
-    while True:
-        try:
-            yield cursor.next()
-        except tweepy.TooManyRequests:
-            logging.info(f"Hit API limit, waiting 15 minutes...")
-            time.sleep(15 * 60) # 15 minutes * 60 sec is twitter default timeout
-
 def get_OAuth_access(twitter_keys):
     """Generates the links you need to follow to setup OAuth
     """
@@ -62,7 +49,7 @@ class ListUpdater():
         self.list_name = list_name
         self.list_id = list_id
 
-    def create_list():
+    def create_list(self):
         # One time function I used to create the list.
         # name of the list
         name = "Alex's Feed (Auto)"
@@ -78,7 +65,7 @@ class ListUpdater():
 
     def get_follows(self, screen_name):
         follows_ids = []
-        for user in limit_handled(tweepy.Cursor(self.api.get_friends, screen_name=screen_name).items()):
+        for user in tweepy.Cursor(self.api.get_friends, screen_name=screen_name).items():
             follows_ids.append(user.id)
         return follows_ids
 
@@ -93,7 +80,7 @@ class ListUpdater():
             [int]: List of twitter ids in the list.
         """
         current_list_ids = []
-        for member in limit_handled(tweepy.Cursor(self.api.list_members, list_id=list_id).items()):
+        for member in tweepy.Cursor(self.api.get_list_members, list_id=list_id).items():
             current_list_ids.append(member.id)
         logging.info(f"current_list_ids: {current_list_ids}")
         return current_list_ids
